@@ -7,10 +7,11 @@ import (
 )
 
 func TestInMemoryDB_Set(t *testing.T) {
+	const key1 = "key1"
+	const value1 = "value1"
+	const value2 = "value2"
+
 	t.Run("commit", func(t *testing.T) {
-		key1 := "key1"
-		value1 := "value1"
-		value2 := "value2"
 		db := New()
 		db.Set(key1, value1)
 
@@ -23,10 +24,7 @@ func TestInMemoryDB_Set(t *testing.T) {
 	})
 
 	t.Run("rollback", func(t *testing.T) {
-		key1 := "key1"
 		key2 := "key2"
-		value1 := "value1"
-		value2 := "value2"
 		db := New()
 		db.Set(key1, value1)
 		res := db.Get(key1)
@@ -46,9 +44,6 @@ func TestInMemoryDB_Set(t *testing.T) {
 	})
 
 	t.Run("nested", func(t *testing.T) {
-		key1 := "key1"
-		value1 := "value1"
-		value2 := "value2"
 		db := New()
 		db.Set(key1, value1)
 
@@ -72,9 +67,6 @@ func TestInMemoryDB_Set(t *testing.T) {
 	})
 
 	t.Run("nested rollback", func(t *testing.T) {
-		key1 := "key1"
-		value1 := "value1"
-		value2 := "value2"
 		db := New()
 		db.Set(key1, value1)
 
@@ -92,7 +84,7 @@ func TestInMemoryDB_Set(t *testing.T) {
 		res = db.Get(key1)
 		assert.Equal(t, value2, res)
 		db.Commit()
-		
+
 		res = db.Get(key1)
 		assert.Equal(t, value2, res)
 	})
