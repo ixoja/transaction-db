@@ -10,7 +10,7 @@ type (
 	}
 
 	transaction struct {
-		actions []*action
+		rollback []*action
 	}
 
 	InMemoryDB struct {
@@ -43,11 +43,20 @@ func (d *InMemoryDB) Set(key, value string) {
 	}
 
 	tID := d.getCurrentTransactionID()
-	d.transactions[tID].actions = append(d.transactions[tID].actions, &action{
+	if _, ok := d.storage[key]; !ok {
+		d.transactions[tID].rollback = append(d.transactions[tID].rollback, &action{
+			aType: ActionDelete,
+			key:   key,
+		})
+		return
+	}
+
+	d.transactions[tID].rollback = append(d.transactions[tID].rollback, &action{
 		aType: ActionSet,
 		key:   key,
-		value: value,
+		value: d.storage[key],
 	})
+	d.storage[key] = value
 }
 
 func (d *InMemoryDB) Delete(key string) {
@@ -58,39 +67,31 @@ func (d *InMemoryDB) Delete(key string) {
 	}
 
 	tID := d.getCurrentTransactionID()
-	d.transactions[tID].actions = append(d.transactions[tID].actions, &action{
-		aType: ActionDelete,
+	d.transactions[tID].rollback = append(d.transactions[tID].rollback, &action{
+		aType: ActionSet,
 		key:   key,
+		value: d.storage[key],
 	})
+	delete(d.storage, key)
 }
 
 func (d *InMemoryDB) StartTransaction() {
 	if d.transactions[0] == nil {
 		d.transactions[0] = &transaction{
-			actions: make([]*action, 0, 5),
+			rollback: make([]*action, 0, 5),
 		}
 		return
 	}
 
 	d.transactions[d.getCurrentTransactionID()+1] = &transaction{
-		actions: make([]*action, 0, 5),
+		rollback: make([]*action, 0, 5),
 	}
-	return
 }
 
 func (d *InMemoryDB) Commit() {
 	// no active transactions, skip
 	if d.transactions[0] == nil {
 		return
-	}
-
-	for _, a := range d.transactions[d.getCurrentTransactionID()].actions {
-		switch a.aType {
-		case ActionSet:
-			d.storage[a.key] = a.value
-		case ActionDelete:
-			delete(d.storage, a.key)
-		}
 	}
 
 	delete(d.transactions, d.getCurrentTransactionID())
@@ -100,6 +101,15 @@ func (d *InMemoryDB) Rollback() {
 	// no active transactions, skip
 	if d.transactions[0] == nil {
 		return
+	}
+
+	for _, a := range d.transactions[d.getCurrentTransactionID()].rollback {
+		switch a.aType {
+		case ActionSet:
+			d.storage[a.key] = a.value
+		case ActionDelete:
+			delete(d.storage, a.key)
+		}
 	}
 
 	delete(d.transactions, d.getCurrentTransactionID())
